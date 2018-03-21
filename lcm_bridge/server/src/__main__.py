@@ -36,6 +36,17 @@ class Bridge:
         """
         self.lcm_.publish(topic, lcmutil.dict_to_lcm(message).encode())
 
+    async def _send_subscription(self, topic, msg, websocket):
+        try:
+            await websocket.send(json.dumps({
+                'type': 'lcm_message',
+                'topic': topic,
+                'message': lcmutil.lcm_to_dict(msg)
+            }))
+        except websockets.exceptions.ConnectionClosed as e:
+            print('Websocket connection lost: {}'.format(str(e)))
+            return
+
     def add_subscription(self, topic, lcm_type, websocket):
         """
         Creates a subscription to a topic, which echoes over the
@@ -45,11 +56,7 @@ class Bridge:
 
         def callback(topic, data):
             msg = lcmutil.decode(lcm_type, data)
-            loop.create_task(websocket.send(json.dumps({
-                'type': 'lcm_message',
-                'topic': topic,
-                'message': lcmutil.lcm_to_dict(msg)
-            })))
+            loop.create_task(self._send_subscription(topic, msg, websocket))
         self.subscriptions[topic] = self.lcm_.subscribe(topic, callback)
 
     def remove_subscription(self, topic):
@@ -58,6 +65,14 @@ class Bridge:
         """
         self.lcm_.unsubscribe(self.subscriptions[topic])
         del self.subscriptions[topic]
+
+    def clean_subscriptions(self):
+        """
+        Erases all subscriptions.
+        """
+        for sub in self.subscriptions.values():
+            self.lcm_.unsubscribe(sub)
+        self.subscriptions.clear()
 
     async def conn_state_pusher(self, websocket, path):
         """
@@ -87,12 +102,15 @@ class Bridge:
                     self.remove_subscription(command['topic'])
                 else:
                     print('Invalid message type: {}'.format(command['type']))
+            except websockets.exceptions.ConnectionClosed as e:
+                raise e
             except Exception as e:
                 await websocket.send(json.dumps({
                     'type': 'error_message',
                     'message': "Error when sending command: {}\n{}"
                     .format(str(command), str(e))
                 }))
+                print('exception: {}'.format(str(e)))
 
     async def chatter(self, websocket, path):
         """
@@ -104,7 +122,8 @@ class Bridge:
                 self.lcm_bridge(websocket, path)
             )
         except websockets.exceptions.ConnectionClosed as e:
-            print('Websocket connection lost')
+            print('Websocket connection lost: {}'.format(str(e)))
+            self.clean_subscriptions()
 
     async def main_loop(self):
         """
