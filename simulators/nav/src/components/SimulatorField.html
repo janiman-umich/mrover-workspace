@@ -75,7 +75,6 @@ export default {
                 const { dist, bearing } = dist_and_bearing(
                     to_decimal(odom), to_decimal(tennis_balls[i]));
 
-                console.log(`testing a ball at ${dist} meters by ${bearing} radians`);
                 if (bearing < ROVER_FIELD_OF_VIEW/2 && dist < ROVER_DEPTH_OF_VIEW) {
                     tennis_balls[i].detected = true;
 
@@ -89,6 +88,25 @@ export default {
             }
 
             this.set({ tennis_balls });
+        };
+
+        const recompute_obstacle_visibility = () => {
+            const odom = this.get("odom");
+            const scale = this.get("radius_meters");
+            const x_scale = canvas.width/(2*scale);
+            const y_scale = canvas.height/(2*scale);
+            if (!odom) { return; }
+            let rocks = this.get("rocks");
+
+            for (let i = 0; i < rocks.length; i++) {
+                rocks[i].detected = false;
+
+                const { dist, bearing } = dist_and_bearing(
+                    to_decimal(odom), to_decimal(rocks[i]));
+
+                // TODO the above (dist, bearing) is to the CENTER of the
+                // rock. Need to incorporate the rock's size when doing this!
+            }
         };
 
         const draw = () => {
