@@ -30,8 +30,13 @@
         <p>Overall Board Temperature: {{temperature.tboard_temp}} ºC</p>
      </div>
      <div class="box light-bg">
-        <p>Left: {{drivemotors.left}} RPM</p>
-        <p>Right: {{drivemotors.right}} RPM</p>
+        <p>Left: {{drivemotors.left}} (-1 to 1)</p>
+        <p>Right: {{drivemotors.right}} (-1 to 1)</p>
+        <h3>Motor RPMs</h3>
+        <p>Front Left: {{rpm.front_left}} RPM</p>
+        <p>Front Right: {{rpm.front_right}} RPM</p>
+        <p>Back Left: {{rpm.back_left}} RPM</p>
+        <p>Bottom Right: {{rpm.back_right}} RPM</p>
      </div>
 </div>
 <style>
@@ -62,6 +67,7 @@
     }
 </style>
 <script>
+    const encoderCountPerRotation = 4000; //TODO confirm with Matt
     export default{
         data(){
             return {
@@ -96,7 +102,9 @@
                 drivemotors:{
                     left: 0,
                     right: 0
-                }
+                },
+                prevDriveEncoder: {},
+                driveEncoder: {},
             }
         },
         methods:{
@@ -124,7 +132,34 @@
                         drivemotors: messages
                     })   
                 }
+                if (topic === 'driveEncoder'){
+                    this.set({
+                        prevDriveEncoder: this.get('driveEncoder'),
+                        driveEncoder: message
+                    })
+                }
             }   
+        },
+        computed:{
+            rpm: (driveEncoder, prevDriveEncoder) => {
+                console.log("HERE");
+                if(typeof (prevDriveEncoder.front_left) === 'undefined'){
+                    return {
+                        "front_left": 0,
+                        "back_left": 0,
+                        "front_right": 0,
+                        "back_right": 0
+                    }
+                }
+
+                let factor = ((driveEncoder.timestamp - prevDriveEncoder.timestamp)/1000.0)/encoderCountPerRotation;
+                return {
+                    "front_left": (driveEncoder.front_left - prevDriveEncoder.front_left)/factor,
+                    "back_left": (driveEncoder.back_left - prevDriveEncoder.back_left)/factor,
+                    "front_right": (driveEncoder.front_right - prevDriveEncoder.front_right)/factor,
+                    "back_right": (driveEncoder.back_right - prevDriveEncoder.back_right)/factor
+                }
+            }
         }
     }
 </script>

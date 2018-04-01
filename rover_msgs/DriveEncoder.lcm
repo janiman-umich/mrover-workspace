@@ -1,0 +1,8 @@
+package rover_msgs;
+
+struct DriveEncoder {
+    int32_t front_left;
+    int32_t back_left;
+    int32_t front_right;
+    int32_t back_right;
+}

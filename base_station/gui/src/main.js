@@ -85,6 +85,10 @@ const lcm_ = new LCMBridge(
     'type':'Encoder'
   },
   {
+    'topic':'/driveEncoder',
+    'type':'DriveEncoder'
+  },
+  {
     'topic':'/nav_status',
     'type':'NavStatus'
   },

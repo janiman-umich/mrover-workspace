@@ -1,6 +1,7 @@
 from rover_common import aiolcm
 import asyncio
 import os
+import time
 from rover_common.aiohelper import run_coroutines, exec_later
 from rover_msgs import DriveMotors
 from rover_msgs import SetParam
@@ -8,6 +9,7 @@ from rover_msgs import Encoder
 from rover_msgs import SetDemand
 from rover_msgs import SAMotors
 from rover_msgs import OpenLoopRAMotors
+from rover_msgs import DriveEncoder
 from .lowlevel import LowLevel
 from enum import Enum
 from rover_common import talon_srx
@@ -36,6 +38,7 @@ class Talons(Enum):
 
 
 class Rover:
+
     def __init__(self):
         self.talons = []
         for i in range(NUM_TALONS):
@@ -63,7 +66,7 @@ class Rover:
 
     async def run_all(self):
         asyncio.ensure_future(
-                asyncio.gather(*(t.loop() for t in self.talons)))
+            asyncio.gather(*(t.loop() for t in self.talons)))
         await self.configure_talons()
 
 
@@ -150,6 +153,23 @@ async def publish_arm_encoders():
         await asyncio.sleep(0.1)
 
 
+async def publish_drive_encoders():
+    while True:
+        ec = DriveEncoder()
+        ec.left_front = int(
+            await rover.talons[Talons.left_front.value].read_enc_value() or 0)
+        ec.left_back = int(
+            await rover.talons[Talons.left_back.value].read_enc_value() or 0)
+        ec.right_front = int(
+            await rover.talons[Talons.right_front.value].read_enc_value() or 0)
+        ec.right_back = int(
+            await rover.talons[Talons.right_back.value].read_enc_value() or 0)
+        ec.timestamp = int(time.time()*1000)
+        lcm_.publish('/drive_encoder', ec.encode())
+
+        await asyncio.sleep(0.2)
+
+
 def main():
     global rover
     rover = Rover()
@@ -159,4 +179,5 @@ def main():
     lcm_.subscribe("/sa_motors", sa_motor_callback)
     # lcm_.subscribe("/arm_demand", arm_demand_callback)
     lcm_.subscribe("/arm_motors", open_loop_arm_callback)
-    run_coroutines(publish_arm_encoders(), lcm_.loop(), rover.run_all())
+    run_coroutines(publish_arm_encoders(),
+                   publish_drive_encoders(), lcm_.loop(), rover.run_all())
